@@ -1,6 +1,6 @@
 # Features:
 
-Basic desktop system:<br /> - Support for different file icons<br /> - Support for different wallpapers<br />
+Basic desktop system:<br /> - Support for different file icons.<br /> - Support for different wallpapers.<br /> - Support for monitor-confined mouse.<br />
 
 ---------------------------------------
 
