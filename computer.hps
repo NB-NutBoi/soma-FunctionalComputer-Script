@@ -1,0 +1,728 @@
+
+#include "helpers/helper_imgui.hps"
+
+class FunctionalComputer
+{
+	/*---------------------------------------------------
+	--------------------VARIABLES------------------------
+	---------------------------------------------------*/
+	
+	
+	
+	
+	//Main data class
+	ComputerData data;
+	bool waitForMouseMovementBeforeInput = true;
+	tString soundModule;
+	bool hasSoundModule = false;
+	
+	[volatile]array<Click@> clicks;
+	
+	
+	/*------------------------------------------------------
+	--------------------CONSTRUCTORS------------------------
+	------------------------------------------------------*/
+	
+	
+	
+	
+	FunctionalComputer(ComputerData defaultData){
+		data = defaultData;
+		
+		Desktop d = Desktop("Desktop");
+		data.desktop = d;
+		data.applications.push_back(@d);
+		data.currentFocusedApplication.push_back(@d);
+	}
+	
+	FunctionalComputer()
+	{
+		data = ComputerData();
+		
+		Desktop d = Desktop("Desktop");
+		data.desktop = d;
+		data.applications.push_back(@d);
+		data.currentFocusedApplication.push_back(@d);
+	}
+	
+	
+	
+	
+	/*----------------------------------------------
+	--------------------MISC------------------------
+	----------------------------------------------*/
+	
+	
+	
+	
+	void updateTrackMouse(bool track){
+		waitForMouseMovementBeforeInput = true;
+		data.doMouseCalculations = track;
+	}
+	
+	void SetSoundModule(tString asEntity){
+		hasSoundModule = true;
+		soundModule = asEntity;
+	}
+	
+	
+	
+	
+	/*----------------------------------------------
+	-----------ADDDDING/REMOVING DATA---------------
+	----------------------------------------------*/
+	
+	void AddFile(const ComputerFile file){
+		data.files.push_back(file);
+	}
+	
+	void AddApp(Application@ app){
+		cLux_AddDebugMessage(app.name +" added.");
+		data.applications.push_back(app);
+		cLux_AddDebugMessage(data.applications.length +" apps active after add.");
+	}
+	
+	void RemoveApp(Application@ app){
+		cLux_AddDebugMessage(app.name +" removed.");
+		data.applications.removeAt(data.applications.find(app));
+		cLux_AddDebugMessage(data.applications.length +" apps active after remove.");
+	}
+	
+	/*
+	--------------------CLICKS------------------------
+	*/
+	
+	void AddClick(Click@ click){
+		clicks.push_back(click);
+	}
+	
+	void RemoveClick(int index){
+		clicks.removeAt(index);
+	}
+	
+	bool CheckClickExists(tString click){
+		for(int i = 0; i < int(clicks.length); ++i)
+		{	
+			if(clicks[i].input == click){
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	/*-------------------------------------------------
+	--------------------DRAWING------------------------
+	-------------------------------------------------*/
+	
+	
+	
+	
+	cColor DrawComputer(float afTimeStep){
+		
+		cColor returncolor = cColor_Blue;
+		
+		/*
+		--------------------CLICKS------------------------
+		*/
+		
+		for(int i = 0; i < int(clicks.length); ++i)
+		{	
+			Click@ c = clicks[i];
+			if(c.time <= 0){
+				cLux_AddDebugMessage("Removed click "+c.input);
+				RemoveClick(i);
+				cLux_AddDebugMessage(clicks.length+" clicks remaining.");
+			}
+			else{
+				c.UpdateTime(afTimeStep);
+			}
+		}
+		
+		/*
+		--------------------SCREENSAVER------------------------
+		*/
+		
+		cImGuiGfx desktopWallpaper(data.screensaver+".dds", eImGuiGfx_Texture);
+		ImGui_DoImage(desktopWallpaper, cVector3f(0,0,0), cVector2f(data.computerDimentions.x,data.computerDimentions.y));
+		
+		/*
+		--------------------APPS------------------------
+		*/
+		
+		//cLux_AddDebugMessage(data.applications.length+" apps active");
+		
+		for(int i = 0; i < int(data.applications.length); ++i)
+		{	
+			//app space (other than desktop) is always 10 and up
+			UpdateApp(data.applications[i], afTimeStep, 10+i);
+		}
+		
+		if(data.doMouseCalculations){
+			if(waitForMouseMovementBeforeInput && ImGui_CheckMouseHasMoved()){
+				waitForMouseMovementBeforeInput = false;
+			}
+			//sprite.framePixels.getPixel32(Std.int((FlxG.mouse.x - sprite.x) * (sprite.framePixels.width / sprite.width)),Std.int((FlxG.mouse.y - sprite.y) * (sprite.framePixels.height / sprite.height)))
+			
+			data.mousePos = cVector2f(float(cInput_GetMouse().GetAbsPosition().x)*(data.computerDimentions.x / 1920),float(cInput_GetMouse().GetAbsPosition().y)*(data.computerDimentions.y / 1080));
+			
+			//cLux_AddDebugMessage(ImGui_GetMouseRel() +" relative mouse position");
+			
+			if(data.mousePos.x != -100 && data.mousePos.y != -100){
+				
+				if( data.mousePos.x > data.computerDimentions.x ){
+					data.mousePos.x = data.computerDimentions.x;
+				}
+				
+				if( data.mousePos.x < 0 ){
+					data.mousePos.x = 0;
+				}
+				
+				if( data.mousePos.y < 0 ){
+					data.mousePos.y = 0;
+				}
+				
+				if( data.mousePos.y > data.computerDimentions.y){
+					data.mousePos.y = data.computerDimentions.y;
+				}
+				
+				data.prevMousePos = data.mousePos;
+			}
+			else{
+				data.mousePos = data.prevMousePos;
+			}
+			
+			//cLux_AddDebugMessage(mousePos +" absolute mouse position");
+		}
+		
+		cImGuiGfx cursor(data.mouse+".dds", eImGuiGfx_Texture);
+		ImGui_DoImage(cursor, cVector3f(data.mousePos.x,data.mousePos.y,999), cVector2f(13,20));
+		
+		return returncolor;
+	}
+	
+	
+	
+	
+	/*-----------------------------------------------
+	--------------------LOGIC------------------------
+	-----------------------------------------------*/
+	
+	
+	
+	
+	void UpdateApp(Application@ obj, float afTimeStep, int index){
+		obj.Update(afTimeStep,@data,@this);
+		obj.Draw(index,@data,@this);
+	}
+}
+
+
+/*-----------------------------------------------
+---------------------DATA------------------------
+-----------------------------------------------*/
+
+
+
+class Click
+{
+	float time;
+	tString input;
+	
+	Click(){time = 0.5f; input = "NONE";}
+	Click(float timerTime, tString inputName){time = timerTime; input = inputName;}
+	
+	void UpdateTime(float afTimeStep){time -= afTimeStep;}
+}
+
+class ComputerData
+{
+	bool largeIcons = true;
+	
+	
+	//not meant to be modified directly
+	bool doMouseCalculations = false;
+	 
+	cVector2f mousePos(0,0);
+	cVector2f prevMousePos(0,0);
+	 
+	cVector2f computerDimentions;
+	
+	cVector2f stretchedOffset;
+	 
+	Desktop desktop;
+	[volatile]array<Application@> currentFocusedApplication;
+	
+	//thanks to crater for helping me with this
+	[volatile]array<Application@> applications;
+	array<ComputerFile> files;
+	
+	tString screensaver;
+	tString mouse;
+	
+	//FunctionalComputer cpu;(-22,0)
+	
+	ComputerData(cVector2f dimentions, tString backround, tString mouseTexture){
+		computerDimentions = dimentions;
+		screensaver = backround;
+		mouse = mouseTexture;
+		
+		stretchedOffset = cVector2f(0,0);
+	}
+	
+	ComputerData(cVector2f dimentions, tString backround, tString mouseTexture, cVector2f stretchedOffsetFix){
+		computerDimentions = dimentions;
+		screensaver = backround;
+		mouse = mouseTexture;
+		
+		stretchedOffset = stretchedOffsetFix;
+	}
+	
+	ComputerData(){
+		computerDimentions = cVector2f(520,525);
+		screensaver = "background1";
+		mouse = "cursor_test";
+	}
+	
+	void SetCurrentFocusedApplication(Application@ app){
+		currentFocusedApplication.insertAt(0,@app);
+	}
+}
+
+
+
+
+/*-----------------------------------------------
+--------------------WINDOW-----------------------
+-----------------------------------------------*/
+
+
+
+
+class ComputerWindow{
+	
+	ComputerWindowData windowData;
+	
+	ComputerWindow(ComputerWindowData windowData){
+		this.windowData = windowData;
+	}
+	
+	ComputerWindow(){
+		windowData = ComputerWindowData(cVector2f(100,100),cVector2f(0,0));
+	}
+	
+	void Update(float time, const ComputerData@ data, FunctionalComputer@ cpu){
+		
+	}
+	
+	void Draw(int index, const ComputerData@ data, FunctionalComputer@ cpu){
+		ImGui_DrawReadableBackground(cVector3f(windowData.position.x,windowData.position.y,index),windowData.window_size*data.stretchedOffset,1);
+	}
+}
+
+class ComputerWindowData{
+	
+	cVector2f window_size;
+	cVector2f start_pos;
+	
+	cVector2f position;
+	
+	ComputerWindowData(cVector2f window_size,cVector2f start_pos){
+		this.window_size = window_size;
+		this.start_pos = start_pos;
+		position = start_pos;
+	}
+	
+	ComputerWindowData(){
+		window_size = cVector2f(100,100);
+		start_pos = cVector2f(0,0);
+	}
+}
+
+
+
+
+/*-----------------------------------------------
+---------------------FILE------------------------
+-----------------------------------------------*/
+
+
+
+class ComputerFile
+{
+	//iComputerFileDataInterface data;
+	
+	tString name;
+	tString appType;
+	
+	cVector2f index;
+	
+	[volatile]bool selected = false;
+	
+	[volatile]array<Application@> onOpen;
+	
+	ComputerFile(cVector2f index, tString name, tString appType, Application onOpen){
+		this.index = index;
+		this.name = name;
+		this.appType = appType;
+		this.onOpen.push_back(@onOpen);
+	}
+	
+	ComputerFile(){
+		name = "unnamed file";
+		index = cVector2f(0,0);
+		appType = "text";
+		onOpen.push_back(@TextReader("unnamed file - Text reader",AppTextContent("incorrectly made file.")));
+	}
+}
+
+
+
+/*-----------------------------------------------
+------------------APPLICATION--------------------
+-----------------------------------------------*/
+
+
+
+class Application
+{
+	tString name;
+	tString appType;
+	
+	ComputerWindow window;
+	
+	bool renderWindow;
+	bool forceFocus;
+	
+	Application(tString name, tString appType){
+		this.name = name;
+		this.appType = appType;
+		
+		renderWindow = false;
+		forceFocus = false;
+	}
+	
+	Application(){
+		name = "unnamed application";
+		appType = "file";
+		
+		renderWindow = false;
+		forceFocus = false;
+	}
+	
+	// Implement the copy constructor
+	
+	Application(const Application &in other)
+    {
+		this = other;
+    }
+	
+	void Update(float time, ComputerData@ data, FunctionalComputer@ cpu){
+		if(renderWindow){
+			window.Update(time,data,cpu);
+		}
+	}
+	void Draw(int index, ComputerData@ data, FunctionalComputer@ cpu){
+		if(renderWindow){
+			window.Draw(index,data,cpu);
+		}
+	}
+	
+	void OpenWindow(ComputerData@ data, FunctionalComputer@ cpu){}
+	void CloseWindow(ComputerData@ data, FunctionalComputer@ cpu){}
+}
+
+
+/*-----------------------------------------------
+--------STANDARD APPLICATION STRUCTURE-----------
+-----------------------------------------------*/
+
+class AppTextContent
+{
+	tString text;
+	
+	AppTextContent(tString text){
+		this.text = text;
+	}
+	
+	AppTextContent(){
+		text = "";
+	}
+}
+
+/*-----------------------------------------------
+---------------STANDARD APPLICATIONS-------------
+-----------------------------------------------*/
+
+
+
+/*
+------------------TEXT READER--------------------
+*/
+
+class TextReader : Application
+{
+	AppTextContent content;
+	TextReader(const tString windowName, const AppTextContent appContent){
+		super(windowName,"text");
+		apptest = 0;
+		
+		content = appContent;
+		
+		renderWindow = true;
+	}
+	
+	TextReader(){
+		super("Unnamed Text Reader","text");
+		apptest = 0;
+		
+		content = AppTextContent();
+		
+		renderWindow = true;
+	}
+	
+	TextReader(const TextReader &in other)
+    {
+		super(other.name,other.appType);
+		apptest = other.apptest;
+		
+		content = other.content;
+		
+		renderWindow = true;
+    }
+	
+	int apptest;
+	
+	//void iComputerFileDataInterface(){};
+	
+	void Update(float time, ComputerData@ data, FunctionalComputer@ cpu) override
+	{
+		//cLux_AddDebugMessage("yaay");
+		Application::Update(time,data,cpu);
+	}
+	
+	void Draw(int index, ComputerData@ data, FunctionalComputer@ cpu) override
+	{
+		Application::Draw(index,data,cpu);
+	}
+	
+	void OpenWindow(ComputerData@ data, FunctionalComputer@ cpu) override
+	{
+		data.SetCurrentFocusedApplication(@this);
+		window = ComputerWindow(ComputerWindowData(cVector2f(200,200),cVector2f(100,120)));
+		cLux_AddDebugMessage("open text editor");
+		cpu.AddApp(@this);
+	}
+	
+	void CloseWindow(ComputerData@ data, FunctionalComputer@ cpu) override
+	{
+		data.SetCurrentFocusedApplication(data.applications[0]);
+		cLux_AddDebugMessage("close text editor");
+		cpu.RemoveApp(@this);
+	}
+}
+
+/*
+------------------DESKTOP--------------------
+*/
+
+//i don't recommend messing with this one, it doesn't work the same as the other applications.
+class Desktop : Application
+{
+	[volatile]tString selected = "";
+	
+	Desktop(const tString windowName){
+		super(windowName,"file");
+		apptest = 1;
+	}
+	
+	Desktop(){
+		super("Unnamed Desktop","file");
+		apptest = 1;
+	}
+	
+	Desktop(const Desktop &in other)
+    {
+		super(other.name,other.appType);
+		apptest = other.apptest;
+    }
+	
+	int apptest;
+	
+	//void iComputerFileDataInterface(){};
+	
+	void Update(float time, ComputerData@ data, FunctionalComputer@ cpu) override
+	{
+		//cLux_AddDebugMessage(" hi from desktop");
+	}
+	
+	void Draw(int index, ComputerData@ data, FunctionalComputer@ cpu) override
+	{		
+		/* 
+		ICONS
+		*/
+		
+		//cLux_AddDebugMessage(" hi from desktop");
+		
+		for(int i = 0; i < int(data.files.length); ++i)
+		{
+			ComputerFile file = data.files[i];
+			DrawIcon(file,data,cpu);
+			
+		}
+		
+		// taskbar
+		ImGui_DrawReadableBackground(cVector3f(0,data.computerDimentions.y - 50,3),cVector2f(data.computerDimentions.x,50),0.85f);
+		ImGui_DoLabel("ShitOS V1.2",cVector3f(5,data.computerDimentions.y - 35,4));
+	}
+	
+	
+	//DRAW ICONS
+	
+	void DrawIcon(ComputerFile file, ComputerData@ data, FunctionalComputer@ cpu)
+	{
+		cVector2f index = file.index;
+		tString name = file.name;
+		tString appType = file.appType;
+		
+		/*
+		--------------------ICON------------------------
+		*/
+		if(data.largeIcons){
+			index.y = cMath_Clamp(index.y, 0, 3);
+			index.x = cMath_Clamp(index.x, 0, 5);
+		}
+		
+		
+		cImGuiGfx icon("iconLarge_File.dds", eImGuiGfx_Texture);
+		
+		if(appType == "file"){
+			if(data.largeIcons){
+				icon = cImGuiGfx("iconLarge_File.dds", eImGuiGfx_Texture);
+			}
+		}
+		else if(appType == "text"){
+			if(data.largeIcons){
+				icon = cImGuiGfx("iconLarge_TextFile.dds", eImGuiGfx_Texture);
+			}
+		}
+		else if(appType == "exe"){
+			if(data.largeIcons){
+				icon = cImGuiGfx("iconLarge_Executable.dds", eImGuiGfx_Texture);
+			}
+		}
+		else if(appType == "image"){
+			if(data.largeIcons){
+				icon = cImGuiGfx("iconLarge_Image.dds", eImGuiGfx_Texture);
+			}
+		}
+		else if(appType == "internet"){
+			if(data.largeIcons){
+				icon = cImGuiGfx("iconLarge_Globe.dds", eImGuiGfx_Texture);
+			}
+		}
+		else{
+			if(data.largeIcons){
+				icon = cImGuiGfx("iconLarge_"+appType+".dds", eImGuiGfx_Texture);
+			}
+		}
+		
+		/*
+		--------------------SIZE------------------------
+		*/
+		
+		cVector2f size(80,80);
+		float mul = 80;
+		
+		if(data.largeIcons){
+			size = cVector2f(80,80) * data.stretchedOffset;
+			mul = 80;
+		}
+		else{
+			size = cVector2f(40,40) * data.stretchedOffset;
+			mul = 40;
+		}
+		
+		/*
+		--------------------POSITION------------------------
+		*/
+		
+		//default layer for desktop icons is always 2
+		
+		cVector3f position((index.x * mul), ((index.y * mul) + (40*index.y)), 2);
+		
+		/*
+		--------------------DRAW------------------------
+		*/
+		
+		int chars =	cString_GetLastStringPos(name,cString_GetLastChar(name))+1;
+		
+		//cLux_AddDebugMessage(chars +" chars");
+		
+		if(chars > 8){
+			name = cString_Sub(name, 0, 5) + "...";
+			
+		}
+		
+		ImGui_DoLabel(name,(position + cVector3f(0+GetNameOffset(chars,size.x),size.y+5,0)));
+		ImGui_DoImage(icon, position, size);
+		
+		/*
+		--------------------SELECT ICON------------------------
+		*/
+		
+		//cLux_AddDebugMessage(data.currentFocusedApplication[0].name);
+		
+		if(data.currentFocusedApplication[0].name == "Desktop"){
+			
+			//do visual first
+			bool overlaps = false;
+			bool curSelected = false;
+			
+			if(selected == name){
+				curSelected = true;
+			}
+			
+			if(cMath_CheckPointInRectIntersection(data.mousePos,cRect2f(position.x,position.y,size.x,size.y))){
+				overlaps = true;
+			}
+			
+			if(overlaps || curSelected){
+				ImGui_DrawReadableBackground(position - cVector3f(0,0,1),size,0.45f);
+			}
+			
+			//then deal with input
+			
+			if(data.doMouseCalculations && !cpu.waitForMouseMovementBeforeInput){
+				if(ImGui_ActionTriggered(eImGuiAction_MouseLeft) && overlaps){
+					selected = name;
+					
+					if(!cpu.CheckClickExists(name)){
+						cpu.AddClick(Click(0.25f,name));
+					}
+					else{
+						selected = "";
+						file.onOpen[0].OpenWindow(data,cpu);
+					}
+					/*
+					file.onOpen[0].OpenWindow(data,cpu);
+					cLux_AddDebugMessage("click on "+name+".   app "+file.onOpen[0].name);*/
+				}
+				else if(ImGui_ActionTriggered(eImGuiAction_MouseLeft) && curSelected){
+					selected = "";
+				}
+			}
+		}
+		
+	}
+	
+	float GetNameOffset(int chars,float ogWidth){
+		//8 chars is good for default size
+		float mul = float(chars) / 8;
+		mul = 1-mul;
+		
+		//cLux_AddDebugMessage(chars + " chars, "+ mul +" mul, " + ogWidth+ " width, " + ogWidth*mul + " result.");
+		
+		return ((ogWidth*0.5)*mul) + (float(chars) * mul);
+	}
+}
