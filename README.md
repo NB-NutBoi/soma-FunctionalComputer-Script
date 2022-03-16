@@ -27,7 +27,7 @@ Basic setup on a map script:
 
 //...
 
-//               computer screen size|wallpaper tex|cursor tex | stretchedOffset (if something that should look square (100x100) looks rectangular, try making these smaller.
+//               computer screen size|wallpaper tex|cursor tex | stretchedOffset (if something that should look square (100x100) looks rectangular, try making these smaller.)
 ComputerData data(cVector2f(520,525),"background1","cursor_test",cVector2f(1,1));
 		
 FunctionalComputer computer(data);
