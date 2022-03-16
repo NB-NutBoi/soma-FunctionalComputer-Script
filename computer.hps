@@ -657,14 +657,15 @@ class Desktop : Application
 		
 		int chars =	cString_GetLastStringPos(name,cString_GetLastChar(name))+1;
 		
+		float xOffset = GetNameOffset(chars,size.x);
 		//cLux_AddDebugMessage(chars +" chars");
 		
 		if(chars > 8){
-			name = cString_Sub(name, 0, 5) + "...";
-			
+			name = cString_Sub(name, 0, 8) + "...";
+			xOffset = size.x*0.5;
 		}
 		
-		ImGui_DoLabel(name,(position + cVector3f(0+GetNameOffset(chars,size.x),size.y+5,0)));
+		ImGui_DoLabel(name,(position + cVector3f(0+xOffset,size.y+5,0)));
 		ImGui_DoImage(icon, position, size);
 		
 		/*
@@ -716,6 +717,7 @@ class Desktop : Application
 		
 	}
 	
+	//this code fucking sucks but it's only an approximation til i can find a better way to do names
 	float GetNameOffset(int chars,float ogWidth){
 		//8 chars is good for default size
 		float mul = float(chars) / 8;
