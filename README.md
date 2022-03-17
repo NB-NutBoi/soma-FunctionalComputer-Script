@@ -4,7 +4,7 @@ Basic desktop system:<br /> - Support for different file icons.<br /> - Support 
 
 ---------------------------------------
 
-Extremely basic windowing (TODO):<br /> - Multiple application windows<br />
+Extremely basic windowing (TODO):<br /> - Multiple application windows<br /> - Selecting in between windows.<br />
 
 ---------------------------------------
 
