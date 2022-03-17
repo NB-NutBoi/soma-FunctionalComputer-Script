@@ -103,6 +103,7 @@ class FunctionalComputer
 	bool CheckClickExists(tString click){
 		for(int i = 0; i < int(clicks.length); ++i)
 		{	
+	
 			if(clicks[i].input == click){
 				return true;
 			}
@@ -125,6 +126,42 @@ class FunctionalComputer
 		/*
 		--------------------CLICKS------------------------
 		*/
+		
+		if(data.doMouseCalculations && !waitForMouseMovementBeforeInput){
+			if(ImGui_ActionTriggered(eImGuiAction_MouseLeft)){
+				//Clicked somewhere
+				
+				cLux_AddDebugMessage("click," + int(data.applications.length) + " apps active.");
+				if(data.currentFocusedApplication[0].renderWindow){
+					data.currentFocusedApplication[0].window.focused = false;
+				}
+				
+				for(int i = data.applications.length-1; -1 < i; i += -1)
+				{	
+					//cLux_AddDebugMessage(i+ " index");
+					
+					if(i == 0){
+						data.SetCurrentFocusedApplication(@data.desktop);
+						cLux_AddDebugMessage("Set focused app to desktop.");
+						break;
+					}
+					
+					Application@ obj = @data.applications[i];
+					if(obj.window.MouseOverlaps(data.mousePos,@data)){
+						data.SetCurrentFocusedApplication(@obj);
+						
+						if(obj.renderWindow){
+							obj.window.focused = true;
+						}
+						
+						cLux_AddDebugMessage("Set focused app to "+obj.name);
+						break;
+					}
+					
+					continue;
+				}
+			}
+		}
 		
 		for(int i = 0; i < int(clicks.length); ++i)
 		{	
@@ -303,6 +340,9 @@ class ComputerWindow{
 	
 	ComputerWindowData windowData;
 	
+	//internal value;
+	bool focused = false;
+	
 	ComputerWindow(ComputerWindowData windowData){
 		this.windowData = windowData;
 	}
@@ -311,12 +351,22 @@ class ComputerWindow{
 		windowData = ComputerWindowData(cVector2f(100,100),cVector2f(0,0));
 	}
 	
-	void Update(float time, const ComputerData@ data, FunctionalComputer@ cpu){
+	bool MouseOverlaps(cVector2f mouse, ComputerData@ data){
+		return cMath_CheckPointInRectIntersection(mouse,cRect2f(windowData.position.x-2,windowData.position.y-10,(windowData.window_size.x*data.stretchedOffset.x)+4,(windowData.window_size.y*data.stretchedOffset.y)+13));
+	}
+	
+	void Update(float time, ComputerData@ data, FunctionalComputer@ cpu){
 		
 	}
 	
-	void Draw(int index, const ComputerData@ data, FunctionalComputer@ cpu){
-		ImGui_DrawReadableBackground(cVector3f(windowData.position.x,windowData.position.y,index),windowData.window_size*data.stretchedOffset,1);
+	void Draw(int index, ComputerData@ data, FunctionalComputer@ cpu){
+		
+		//window backround
+		ImGui_DrawReadableBackground(cVector3f(windowData.position.x-2,windowData.position.y-10,index),(windowData.window_size*data.stretchedOffset)+cVector2f(4,13),1);
+		//actual window-space
+		if(focused){
+			ImGui_DrawReadableBackground(cVector3f(windowData.position.x,windowData.position.y,index),windowData.window_size*data.stretchedOffset,1);
+		}
 	}
 }
 
@@ -510,12 +560,14 @@ class TextReader : Application
 	{
 		data.SetCurrentFocusedApplication(@this);
 		window = ComputerWindow(ComputerWindowData(cVector2f(200,200),cVector2f(100,120)));
+		window.focused = true;
 		cLux_AddDebugMessage("open text editor");
 		cpu.AddApp(@this);
 	}
 	
 	void CloseWindow(ComputerData@ data, FunctionalComputer@ cpu) override
 	{
+		window.focused = false;
 		data.SetCurrentFocusedApplication(data.applications[0]);
 		cLux_AddDebugMessage("close text editor");
 		cpu.RemoveApp(@this);
