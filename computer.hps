@@ -113,7 +113,7 @@ class FunctionalComputer
 	}
 	
 	/*-------------------------------------------------
-	--------------------DRAWING------------------------
+	---------------DRAWING / UPDATING------------------
 	-------------------------------------------------*/
 	
 	
@@ -124,6 +124,48 @@ class FunctionalComputer
 		cColor returncolor = cColor_Blue;
 		
 		/*
+		--------------------MOUSE------------------------
+		*/
+		
+		if(data.doMouseCalculations){
+			if(waitForMouseMovementBeforeInput && ImGui_CheckMouseHasMoved()){
+				waitForMouseMovementBeforeInput = false;
+			}
+			//sprite.framePixels.getPixel32(Std.int((FlxG.mouse.x - sprite.x) * (sprite.framePixels.width / sprite.width)),Std.int((FlxG.mouse.y - sprite.y) * (sprite.framePixels.height / sprite.height)))
+			
+			data.mousePos = cVector2f(float(cInput_GetMouse().GetAbsPosition().x)*(data.computerDimentions.x / 1920),float(cInput_GetMouse().GetAbsPosition().y)*(data.computerDimentions.y / 1080));
+			
+			//cLux_AddDebugMessage(ImGui_GetMouseRel() +" relative mouse position");
+			
+			if(data.mousePos.x != -100 && data.mousePos.y != -100){
+				
+				if( data.mousePos.x > data.computerDimentions.x ){
+					data.mousePos.x = data.computerDimentions.x;
+				}
+				
+				if( data.mousePos.x < 0 ){
+					data.mousePos.x = 0;
+				}
+				
+				if( data.mousePos.y < 0 ){
+					data.mousePos.y = 0;
+				}
+				
+				if( data.mousePos.y > data.computerDimentions.y){
+					data.mousePos.y = data.computerDimentions.y;
+				}
+				data.mouseRelMove = data.mousePos - data.prevMousePos;
+				//cLux_AddDebugMessage("moved "+data.mouseRelMove);
+				data.prevMousePos = data.mousePos;
+			}
+			else{
+				data.mousePos = data.prevMousePos;
+			}
+			
+			//cLux_AddDebugMessage(mousePos +" absolute mouse position");
+		}
+		
+		/*
 		--------------------CLICKS------------------------
 		*/
 		
@@ -131,12 +173,14 @@ class FunctionalComputer
 			if(ImGui_ActionTriggered(eImGuiAction_MouseLeft)){
 				//Clicked somewhere
 				
-				cLux_AddDebugMessage("click," + int(data.applications.length) + " apps active.");
+				
+				
+				cLux_AddDebugMessage("click," + int(data.applications.length) + " apps active. (including desktop)");
 				if(data.currentFocusedApplication[0].renderWindow){
-					data.currentFocusedApplication[0].window.focused = false;
+					data.currentFocusedApplication[0].window[0].focused = false;
 				}
 				
-				for(int i = data.applications.length-1; -1 < i; i += -1)
+				for(int i = data.applications.length-1; -1 < i; --i)
 				{	
 					//cLux_AddDebugMessage(i+ " index");
 					
@@ -147,11 +191,11 @@ class FunctionalComputer
 					}
 					
 					Application@ obj = @data.applications[i];
-					if(obj.window.MouseOverlaps(data.mousePos,@data)){
+					if(obj.window[0].MouseOverlaps(data.mousePos,@data)){
 						data.SetCurrentFocusedApplication(@obj);
 						
 						if(obj.renderWindow){
-							obj.window.focused = true;
+							obj.window[0].focused = true;
 						}
 						
 						cLux_AddDebugMessage("Set focused app to "+obj.name);
@@ -160,6 +204,22 @@ class FunctionalComputer
 					
 					continue;
 				}
+			}
+			
+			if(ImGui_ActionIsDown(eImGuiAction_MouseLeft)){
+				data.holdingLmb = true;
+				//cLux_AddDebugMessage("hold");
+			}
+			else{
+				data.holdingLmb = false;
+			}
+			
+			if(ImGui_ActionIsDown(eImGuiAction_MouseRight)){
+				data.holdingRmb = true;
+				//cLux_AddDebugMessage("hold");
+			}
+			else{
+				data.holdingRmb = false;
 			}
 		}
 		
@@ -195,42 +255,7 @@ class FunctionalComputer
 			UpdateApp(data.applications[i], afTimeStep, 10+i);
 		}
 		
-		if(data.doMouseCalculations){
-			if(waitForMouseMovementBeforeInput && ImGui_CheckMouseHasMoved()){
-				waitForMouseMovementBeforeInput = false;
-			}
-			//sprite.framePixels.getPixel32(Std.int((FlxG.mouse.x - sprite.x) * (sprite.framePixels.width / sprite.width)),Std.int((FlxG.mouse.y - sprite.y) * (sprite.framePixels.height / sprite.height)))
-			
-			data.mousePos = cVector2f(float(cInput_GetMouse().GetAbsPosition().x)*(data.computerDimentions.x / 1920),float(cInput_GetMouse().GetAbsPosition().y)*(data.computerDimentions.y / 1080));
-			
-			//cLux_AddDebugMessage(ImGui_GetMouseRel() +" relative mouse position");
-			
-			if(data.mousePos.x != -100 && data.mousePos.y != -100){
-				
-				if( data.mousePos.x > data.computerDimentions.x ){
-					data.mousePos.x = data.computerDimentions.x;
-				}
-				
-				if( data.mousePos.x < 0 ){
-					data.mousePos.x = 0;
-				}
-				
-				if( data.mousePos.y < 0 ){
-					data.mousePos.y = 0;
-				}
-				
-				if( data.mousePos.y > data.computerDimentions.y){
-					data.mousePos.y = data.computerDimentions.y;
-				}
-				
-				data.prevMousePos = data.mousePos;
-			}
-			else{
-				data.mousePos = data.prevMousePos;
-			}
-			
-			//cLux_AddDebugMessage(mousePos +" absolute mouse position");
-		}
+		
 		
 		cImGuiGfx cursor(data.mouse+".dds", eImGuiGfx_Texture);
 		ImGui_DoImage(cursor, cVector3f(data.mousePos.x,data.mousePos.y,999), cVector2f(13,20));
@@ -279,8 +304,12 @@ class ComputerData
 	
 	//not meant to be modified directly
 	bool doMouseCalculations = false;
+	
+	bool holdingLmb = false;
+	bool holdingRmb = false;
 	 
 	cVector2f mousePos(0,0);
+	cVector2f mouseRelMove(0,0);
 	cVector2f prevMousePos(0,0);
 	 
 	cVector2f computerDimentions;
@@ -338,34 +367,55 @@ class ComputerData
 
 class ComputerWindow{
 	
-	ComputerWindowData windowData;
+	[volatile]array<ComputerWindowData@> windowData;
 	
 	//internal value;
 	bool focused = false;
+	bool dragging = true;
 	
-	ComputerWindow(ComputerWindowData windowData){
-		this.windowData = windowData;
+	tString windowName = "";
+	
+	ComputerWindow(ComputerWindowData windowData, tString name){
+		this.windowData.push_back(windowData);
+		windowName = name;
 	}
 	
 	ComputerWindow(){
-		windowData = ComputerWindowData(cVector2f(100,100),cVector2f(0,0));
+		windowData.push_back(ComputerWindowData(cVector2f(100,100),cVector2f(0,0)));
 	}
 	
 	bool MouseOverlaps(cVector2f mouse, ComputerData@ data){
-		return cMath_CheckPointInRectIntersection(mouse,cRect2f(windowData.position.x-2,windowData.position.y-10,(windowData.window_size.x*data.stretchedOffset.x)+4,(windowData.window_size.y*data.stretchedOffset.y)+13));
+		return cMath_CheckPointInRectIntersection(mouse,cRect2f(windowData[0].position.x-2,windowData[0].position.y-16.5,(windowData[0].window_size.x*data.stretchedOffset.x)+4,(windowData[0].window_size.y*data.stretchedOffset.y)+16.5));
+	}
+	
+	bool MouseOverlapsWindowTaskbar(cVector2f mouse, ComputerData@ data){
+		return cMath_CheckPointInRectIntersection(mouse,cRect2f(windowData[0].position.x-2,windowData[0].position.y-16.5,(windowData[0].window_size.x*data.stretchedOffset.x)+4,(16.5*data.stretchedOffset.y)));
 	}
 	
 	void Update(float time, ComputerData@ data, FunctionalComputer@ cpu){
+		//cLux_AddDebugMessage("window update.");
+		if(ImGui_ActionTriggered(eImGuiAction_MouseLeft) && MouseOverlapsWindowTaskbar(data.mousePos,@data) && focused && !dragging){
+			//cLux_AddDebugMessage("window drag.");
+			dragging = true;
+		}
 		
+		//prevents dragging from stopping by the mouse updating faster than the terminal
+		if(dragging){
+			if(!data.holdingLmb){
+				dragging = false;
+			}
+			windowData[0].position += data.mouseRelMove;
+		}
 	}
 	
 	void Draw(int index, ComputerData@ data, FunctionalComputer@ cpu){
 		
 		//window backround
-		ImGui_DrawReadableBackground(cVector3f(windowData.position.x-2,windowData.position.y-10,index),(windowData.window_size*data.stretchedOffset)+cVector2f(4,13),1);
+		ImGui_DrawReadableBackground(cVector3f(windowData[0].position.x-2,windowData[0].position.y-16.5,index),(windowData[0].window_size*data.stretchedOffset)+cVector2f(4,19.5),1);
+		ImGui_DoLabel(windowName,cVector3f(windowData[0].position.x,windowData[0].position.y-16.5,index));
 		//actual window-space
 		if(focused){
-			ImGui_DrawReadableBackground(cVector3f(windowData.position.x,windowData.position.y,index),windowData.window_size*data.stretchedOffset,1);
+			ImGui_DrawReadableBackground(cVector3f(windowData[0].position.x,windowData[0].position.y,index),windowData[0].window_size*data.stretchedOffset,1);
 		}
 	}
 }
@@ -376,6 +426,10 @@ class ComputerWindowData{
 	cVector2f start_pos;
 	
 	cVector2f position;
+	
+	bool AllowClose = true;
+	bool AllowMaximize = false;
+	bool AllowMinimize = false;
 	
 	ComputerWindowData(cVector2f window_size,cVector2f start_pos){
 		this.window_size = window_size;
@@ -439,7 +493,7 @@ class Application
 	tString name;
 	tString appType;
 	
-	ComputerWindow window;
+	[volatile]array<ComputerWindow@> window;
 	
 	bool renderWindow;
 	bool forceFocus;
@@ -462,19 +516,32 @@ class Application
 	
 	// Implement the copy constructor
 	
-	Application(const Application &in other)
+	Application(Application@ &in other)
     {
-		this = other;
+		name = other.name;
+		appType = other.appType;
+		
+		window = other.window;
+		
+		renderWindow = other.renderWindow;
+		forceFocus = other.forceFocus;
     }
+	
+	Application@ clone(){
+		Application r(name,appType);
+		r.renderWindow = renderWindow;
+		r.forceFocus = forceFocus;
+		return @r;
+	}
 	
 	void Update(float time, ComputerData@ data, FunctionalComputer@ cpu){
 		if(renderWindow){
-			window.Update(time,data,cpu);
+			window[0].Update(time,data,cpu);
 		}
 	}
 	void Draw(int index, ComputerData@ data, FunctionalComputer@ cpu){
 		if(renderWindow){
-			window.Draw(index,data,cpu);
+			window[0].Draw(index,data,cpu);
 		}
 	}
 	
@@ -554,23 +621,36 @@ class TextReader : Application
 	void Draw(int index, ComputerData@ data, FunctionalComputer@ cpu) override
 	{
 		Application::Draw(index,data,cpu);
+		
+		ImGui_DoLabel(content.text,cVector3f(window[0].windowData[0].position.x,window[0].windowData[0].position.y,index));
 	}
 	
 	void OpenWindow(ComputerData@ data, FunctionalComputer@ cpu) override
 	{
 		data.SetCurrentFocusedApplication(@this);
-		window = ComputerWindow(ComputerWindowData(cVector2f(200,200),cVector2f(100,120)));
-		window.focused = true;
+		window.push_back(ComputerWindow(ComputerWindowData(cVector2f(200,200),cVector2f(100,120)),name));
+		ComputerWindow@ w = @window[0];
+		w.focused = true;
 		cLux_AddDebugMessage("open text editor");
 		cpu.AddApp(@this);
 	}
 	
 	void CloseWindow(ComputerData@ data, FunctionalComputer@ cpu) override
 	{
-		window.focused = false;
+		window[0].focused = false;
 		data.SetCurrentFocusedApplication(data.applications[0]);
 		cLux_AddDebugMessage("close text editor");
 		cpu.RemoveApp(@this);
+		window.removeAt(0);
+	}
+	
+	//clone function (really important)
+	Application@ clone() override
+	{
+		TextReader r(name,content);
+		r.renderWindow = renderWindow;
+		r.forceFocus = forceFocus;
+		return @r;
 	}
 }
 
@@ -624,8 +704,21 @@ class Desktop : Application
 		}
 		
 		// taskbar
-		ImGui_DrawReadableBackground(cVector3f(0,data.computerDimentions.y - 50,3),cVector2f(data.computerDimentions.x,50),0.85f);
+		ImGui_DrawReadableBackground(cVector3f(0,data.computerDimentions.y - 50,3),cVector2f(data.computerDimentions.x,50),0.65f);
 		ImGui_DoLabel("ShitOS V1.2",cVector3f(5,data.computerDimentions.y - 35,4));
+		
+		for(int i = 1; i < int(data.applications.length); ++i)
+		{	
+			Application@ app = @data.applications[i];
+			cImGuiGfx taskbarIcon = GetIcon(app.appType,false,@data);
+			cVector3f pos(0 + 60 + (20*i),data.computerDimentions.y - 47,4);
+			cVector2f size(30 * data.stretchedOffset.x, 30* data.stretchedOffset.y);
+			ImGui_DoImage(taskbarIcon, pos, size);
+			
+			if(app.window[0].focused){
+				ImGui_DrawReadableBackground(pos+cVector3f(0,0,-0.5),size,0.85f);
+			}
+		}
 	}
 	
 	
@@ -645,39 +738,7 @@ class Desktop : Application
 			index.x = cMath_Clamp(index.x, 0, 5);
 		}
 		
-		
-		cImGuiGfx icon("iconLarge_File.dds", eImGuiGfx_Texture);
-		
-		if(appType == "file"){
-			if(data.largeIcons){
-				icon = cImGuiGfx("iconLarge_File.dds", eImGuiGfx_Texture);
-			}
-		}
-		else if(appType == "text"){
-			if(data.largeIcons){
-				icon = cImGuiGfx("iconLarge_TextFile.dds", eImGuiGfx_Texture);
-			}
-		}
-		else if(appType == "exe"){
-			if(data.largeIcons){
-				icon = cImGuiGfx("iconLarge_Executable.dds", eImGuiGfx_Texture);
-			}
-		}
-		else if(appType == "image"){
-			if(data.largeIcons){
-				icon = cImGuiGfx("iconLarge_Image.dds", eImGuiGfx_Texture);
-			}
-		}
-		else if(appType == "internet"){
-			if(data.largeIcons){
-				icon = cImGuiGfx("iconLarge_Globe.dds", eImGuiGfx_Texture);
-			}
-		}
-		else{
-			if(data.largeIcons){
-				icon = cImGuiGfx("iconLarge_"+appType+".dds", eImGuiGfx_Texture);
-			}
-		}
+		cImGuiGfx icon = GetIcon(appType,false,@data);
 		
 		/*
 		--------------------SIZE------------------------
@@ -755,7 +816,8 @@ class Desktop : Application
 					}
 					else{
 						selected = "";
-						file.onOpen[0].OpenWindow(data,cpu);
+						//duplicate app
+						file.onOpen[0].clone().OpenWindow(@data,@cpu);
 					}
 					/*
 					file.onOpen[0].OpenWindow(data,cpu);
@@ -763,10 +825,49 @@ class Desktop : Application
 				}
 				else if(ImGui_ActionTriggered(eImGuiAction_MouseLeft) && curSelected){
 					selected = "";
+					
 				}
 			}
 		}
 		
+	}
+	
+	cImGuiGfx GetIcon(tString appType, bool forceSmallIcons, ComputerData@ data){
+		
+		cImGuiGfx icon("iconLarge_File.dds", eImGuiGfx_Texture);
+		
+		if(appType == "file"){
+			if(data.largeIcons && !forceSmallIcons){
+				icon = cImGuiGfx("iconLarge_File.dds", eImGuiGfx_Texture);
+			}
+		}
+		else if(appType == "text"){
+			if(data.largeIcons && !forceSmallIcons){
+				icon = cImGuiGfx("iconLarge_TextFile.dds", eImGuiGfx_Texture);
+			}
+		}
+		else if(appType == "exe"){
+			if(data.largeIcons && !forceSmallIcons){
+				icon = cImGuiGfx("iconLarge_Executable.dds", eImGuiGfx_Texture);
+			}
+		}
+		else if(appType == "image"){
+			if(data.largeIcons && !forceSmallIcons){
+				icon = cImGuiGfx("iconLarge_Image.dds", eImGuiGfx_Texture);
+			}
+		}
+		else if(appType == "internet"){
+			if(data.largeIcons && !forceSmallIcons){
+				icon = cImGuiGfx("iconLarge_Globe.dds", eImGuiGfx_Texture);
+			}
+		}
+		else{
+			if(data.largeIcons && !forceSmallIcons){
+				icon = cImGuiGfx("iconLarge_"+appType+".dds", eImGuiGfx_Texture);
+			}
+		}
+		
+		return icon;
 	}
 	
 	//this code fucking sucks but it's only an approximation til i can find a better way to do names
