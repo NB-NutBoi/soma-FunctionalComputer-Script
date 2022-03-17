@@ -373,6 +373,8 @@ class ComputerWindow{
 	bool focused = false;
 	bool dragging = true;
 	
+	bool resizable = false;
+	
 	tString windowName = "";
 	
 	ComputerWindow(ComputerWindowData windowData, tString name){
@@ -410,12 +412,17 @@ class ComputerWindow{
 	
 	void Draw(int index, ComputerData@ data, FunctionalComputer@ cpu){
 		
-		//window backround
-		ImGui_DrawReadableBackground(cVector3f(windowData[0].position.x-2,windowData[0].position.y-16.5,index),(windowData[0].window_size*data.stretchedOffset)+cVector2f(4,19.5),1);
+		//window backround simple_white
+		cImGuiGfx window_Bg("simple_white.dds", eImGuiGfx_Texture);
+		ImGui_DoImage(window_Bg, cVector3f(windowData[0].position.x-2,windowData[0].position.y-16.5,index),(windowData[0].window_size*data.stretchedOffset)+cVector2f(4,19.5));
+		
+		ImGui_SetModColorMul(cColor(0,0,0,1));
 		ImGui_DoLabel(windowName,cVector3f(windowData[0].position.x,windowData[0].position.y-16.5,index));
+		ImGui_ResetModifiers();
+		
 		//actual window-space
 		if(focused){
-			ImGui_DrawReadableBackground(cVector3f(windowData[0].position.x,windowData[0].position.y,index),windowData[0].window_size*data.stretchedOffset,1);
+			//ImGui_DrawReadableBackground(cVector3f(windowData[0].position.x,windowData[0].position.y,index),windowData[0].window_size*data.stretchedOffset,1);
 		}
 	}
 }
@@ -622,7 +629,23 @@ class TextReader : Application
 	{
 		Application::Draw(index,data,cpu);
 		
-		ImGui_DoLabel(content.text,cVector3f(window[0].windowData[0].position.x,window[0].windowData[0].position.y,index));
+		cImGuiTextFrameData textFrameData;
+		textFrameData.mFont.mvSize = cVector2f(15, 15);
+		textFrameData.mColorBase = cColor(0, 0, 0, 0);
+		
+		ImGui_SetModColorMul(cColor(0,0,0,1));
+		
+		//ImGui_DoTextFrameExt(const tString&in asText,const cVector2f&in avEdgeSpacing, float afRowSpace, float afStartRowOffset, const cImGuiTextFrameData &in aData, const cVector3f&in avPos, const cVector2f&in avSize)
+		ImGui_DoTextFrameExt(
+		content.text,
+		0,
+		10,
+		0,
+		textFrameData,
+		cVector3f(window[0].windowData[0].position.x + 3,window[0].windowData[0].position.y,index),
+		(window[0].windowData[0].window_size * data.stretchedOffset) + cVector2f(-3,0));
+		
+		ImGui_ResetModifiers();
 	}
 	
 	void OpenWindow(ComputerData@ data, FunctionalComputer@ cpu) override
