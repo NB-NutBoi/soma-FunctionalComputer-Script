@@ -31,7 +31,7 @@ class FunctionalComputer
 		
 		Desktop d = Desktop("Desktop");
 		data.desktop = d;
-		data.applications.push_back(@d);
+		AddApp(@d);
 		data.currentFocusedApplication.push_back(@d);
 	}
 	
@@ -41,7 +41,7 @@ class FunctionalComputer
 		
 		Desktop d = Desktop("Desktop");
 		data.desktop = d;
-		data.applications.push_back(@d);
+		AddApp(@d);
 		data.currentFocusedApplication.push_back(@d);
 	}
 	
@@ -77,15 +77,67 @@ class FunctionalComputer
 	}
 	
 	void AddApp(Application@ app){
-		cLux_AddDebugMessage(app.name +" added.");
+		//cLux_AddDebugMessage(app.name +" added.");
 		data.applications.push_back(app);
-		cLux_AddDebugMessage(data.applications.length +" apps active after add.");
+		AddDrawableApp(app);
+		//cLux_AddDebugMessage(data.applications.length +" apps active after add.");
 	}
 	
 	void RemoveApp(Application@ app){
-		cLux_AddDebugMessage(app.name +" removed.");
-		data.applications.removeAt(data.applications.find(app));
-		cLux_AddDebugMessage(data.applications.length +" apps active after remove.");
+		//cLux_AddDebugMessage(app.name +" removed.");
+		int pos = -1;
+		
+		for(int i = data.applications.length-1; -1 < i; --i)
+		{	
+			//cLux_AddDebugMessage(i+ " index");
+			
+			Application@ obj = @data.applications[i];
+			if(@obj == @app){
+				pos = i;
+				break;
+			}
+			continue;
+		}
+		
+		if(pos != -1)
+			data.applications.removeAt(pos);
+		
+		RemoveDrawableApp(app);
+		
+		//cLux_AddDebugMessage(data.applications.length +" apps active after remove.");
+	}
+	
+	void AddDrawableApp(Application@ app) {
+		data.drawOrderApplications.push_back(app);
+	}
+	
+	void RemoveDrawableApp(Application@ app){
+		
+		int pos = -1;
+		
+		for(int i = data.drawOrderApplications.length-1; -1 < i; --i)
+		{	
+			//cLux_AddDebugMessage(i+ " index");
+			
+			Application@ obj = @data.drawOrderApplications[i];
+			if(@obj == @app){
+				pos = i;
+				break;
+			}
+			continue;
+		}
+		
+		if(pos != -1){
+			cLux_AddDebugMessage(app.name +" removed.");
+			data.drawOrderApplications.removeAt(pos);
+		}
+		
+		//cLux_AddDebugMessage(data.applications.length +" apps active after remove.");
+	}
+	
+	void PushAppToFront(Application@ app){
+		RemoveDrawableApp(@app);
+		AddDrawableApp(@app);
 	}
 	
 	/*
@@ -175,12 +227,12 @@ class FunctionalComputer
 				
 				
 				
-				cLux_AddDebugMessage("click," + int(data.applications.length) + " apps active. (including desktop)");
+				cLux_AddDebugMessage("click," + int(data.drawOrderApplications.length) + " apps active. (including desktop)");
 				if(data.currentFocusedApplication[0].renderWindow){
 					data.currentFocusedApplication[0].window[0].focused = false;
 				}
 				
-				for(int i = data.applications.length-1; -1 < i; --i)
+				for(int i = data.drawOrderApplications.length-1; -1 < i; --i)
 				{	
 					//cLux_AddDebugMessage(i+ " index");
 					
@@ -190,9 +242,11 @@ class FunctionalComputer
 						break;
 					}
 					
-					Application@ obj = @data.applications[i];
+					Application@ obj = @data.drawOrderApplications[i];
 					if(obj.window[0].MouseOverlaps(data.mousePos,@data)){
 						data.SetCurrentFocusedApplication(@obj);
+						
+						PushAppToFront(@obj);
 						
 						if(obj.renderWindow){
 							obj.window[0].focused = true;
@@ -248,11 +302,20 @@ class FunctionalComputer
 		*/
 		
 		//cLux_AddDebugMessage(data.applications.length+" apps active");
+		/*
+		int index = 0;
+		Application@ curApp = data.drawOrderApplications[index];
 		
-		for(int i = 0; i < int(data.applications.length); ++i)
+		while(curApp != null){
+			
+		}*/
+		
+		for(int i = 0; i < int(data.drawOrderApplications.length); ++i)
 		{	
 			//app space (other than desktop) is always 10 and up
-			UpdateApp(data.applications[i], afTimeStep, 10+i);
+			UpdateApp(data.drawOrderApplications[i], afTimeStep, 10+i);
+			if(data.drawOrderApplications.length <= i) continue;
+			DrawApp(data.drawOrderApplications[i], afTimeStep, 10+i);
 		}
 		
 		
@@ -271,10 +334,16 @@ class FunctionalComputer
 	-----------------------------------------------*/
 	
 	
+	int CycleList(int curIndex){
+		return curIndex++;
+	}
 	
 	
 	void UpdateApp(Application@ obj, float afTimeStep, int index){
 		obj.Update(afTimeStep,@data,@this);
+	}
+	
+	void DrawApp(Application@ obj, float afTimeStep, int index){
 		obj.Draw(index,@data,@this);
 	}
 }
@@ -321,6 +390,7 @@ class ComputerData
 	
 	//thanks to crater for helping me with this
 	[volatile]array<Application@> applications;
+	[volatile]array<Application@> drawOrderApplications;
 	array<ComputerFile> files;
 	
 	tString screensaver;
@@ -394,12 +464,28 @@ class ComputerWindow{
 		return cMath_CheckPointInRectIntersection(mouse,cRect2f(windowData[0].position.x-2,windowData[0].position.y-16.5,(windowData[0].window_size.x*data.stretchedOffset.x)+4,(16.5*data.stretchedOffset.y)));
 	}
 	
+	bool MouseOverlapsCloseButton(cVector2f mouse, ComputerData@ data){
+		return cMath_CheckPointInRectIntersection(mouse,cRect2f(windowData[0].position.x + (windowData[0].window_size.x*data.stretchedOffset.x)-9,windowData[0].position.y-16,(16*data.stretchedOffset.x),(16*data.stretchedOffset.y)));
+	}
+	
 	void Update(float time, ComputerData@ data, FunctionalComputer@ cpu){
 		//cLux_AddDebugMessage("window update.");
-		if(ImGui_ActionTriggered(eImGuiAction_MouseLeft) && MouseOverlapsWindowTaskbar(data.mousePos,@data) && focused && !dragging){
-			//cLux_AddDebugMessage("window drag.");
-			dragging = true;
+		
+		bool click = ImGui_ActionTriggered(eImGuiAction_MouseLeft);
+		
+		if(windowData[0].AllowClose && MouseOverlapsCloseButton(data.mousePos,@data) && !dragging){
+			if(click){
+				windowData[0].RequestsClose = true;
+			}
 		}
+		else if(MouseOverlapsWindowTaskbar(data.mousePos,@data) && focused && !dragging){
+			
+			if(click && !windowData[0].Fullscreen){
+				//cLux_AddDebugMessage("window drag.");
+				dragging = true;
+			}
+		}
+		
 		
 		//prevents dragging from stopping by the mouse updating faster than the terminal
 		if(dragging){
@@ -412,13 +498,63 @@ class ComputerWindow{
 	
 	void Draw(int index, ComputerData@ data, FunctionalComputer@ cpu){
 		
+		cVector2f actualSize;
+		cVector2f actualPosition;
+		if(windowData[0].Fullscreen){
+			actualSize = data.computerDimentions;
+			actualPosition = cVector2f(0,0);
+		}
+		else {
+			actualSize = (windowData[0].window_size*data.stretchedOffset)+cVector2f(4,19.5); //do all the necessary stuff here
+			actualPosition = cVector2f(windowData[0].position.x-2,windowData[0].position.y-16.5);
+		}
+		
 		//window backround simple_white
 		cImGuiGfx window_Bg("simple_white.dds", eImGuiGfx_Texture);
-		ImGui_DoImage(window_Bg, cVector3f(windowData[0].position.x-2,windowData[0].position.y-16.5,index),(windowData[0].window_size*data.stretchedOffset)+cVector2f(4,19.5));
+		ImGui_DoImage(window_Bg, cVector3f(actualPosition.x,actualPosition.y,index),actualSize);
 		
-		ImGui_SetModColorMul(cColor(0,0,0,1));
-		ImGui_DoLabel(windowName,cVector3f(windowData[0].position.x,windowData[0].position.y-16.5,index));
-		ImGui_ResetModifiers();
+		//top line
+		ImGui_DrawLine(windowData[0].position+cVector2f(-2,-16.5), cVector2f((windowData[0].window_size.x*data.stretchedOffset.x)+windowData[0].position.x+2,windowData[0].position.y-16.5), index, 1.0f, cMath_HexToRGB("AEAEAEFF"));
+		
+		//window sepparator
+		ImGui_DrawLine(windowData[0].position+cVector2f(-2,0), cVector2f(windowData[0].position.x+(windowData[0].window_size.x*data.stretchedOffset.x),windowData[0].position.y)+cVector2f(2,0), index, 1.0f, cMath_HexToRGB("AEAEAEFF"));
+		
+		//left line
+		ImGui_DrawLine(windowData[0].position+cVector2f(-2,-16.5), cVector2f(windowData[0].position.x,windowData[0].position.y+(windowData[0].window_size.y*data.stretchedOffset.y))+cVector2f(-2,3), index, 1.0f, cMath_HexToRGB("AEAEAEFF"));
+		
+		//right line
+		ImGui_DrawLine(cVector2f(windowData[0].position.x+(windowData[0].window_size.x*data.stretchedOffset.x),windowData[0].position.y)+cVector2f(2,-16.5), cVector2f((windowData[0].window_size*data.stretchedOffset)+windowData[0].position)+cVector2f(2,3), index, 1.0f, cMath_HexToRGB("AEAEAEFF"));
+		
+		//bottom line
+		
+		//exit button
+		
+		if(windowData[0].AllowClose){
+			
+			cImGuiGfx exitButton("windowExitIcon.dds", eImGuiGfx_Texture);
+			
+			cVector3f exitPos(windowData[0].position.x + (windowData[0].window_size.x*data.stretchedOffset.x)-9,windowData[0].position.y-16,index+1);
+			cVector2f exitSize(16*data.stretchedOffset.x,16*data.stretchedOffset.y);
+			
+			ImGui_SetModColorMul(cColor(0,0,0,1));
+			
+			ImGui_DoImage(exitButton, exitPos,exitSize);
+			
+			ImGui_ResetModifiers();
+		}
+		
+		//window title
+		
+		cImGuiButtonData d;
+		d.mbClipText = true;
+		d.mFont.mvSize = cVector2f(11);
+		d.mFont.mColor = cColor(0.2f,0.2f,0.2f,1);
+		d.mColorBase = cColor(0,0,0,0);
+		d.mColorDisabled = cColor(0,0,0,0);
+		d.mColorInFocus = cColor(0,0,0,0);
+		d.mFontAlign = eFontAlign_Left;
+		
+		ImGui_DoButtonExt("button_window_title_"+windowName,windowName,d,cVector3f(windowData[0].position.x - 1,windowData[0].position.y-14.5,index),cVector2f(((windowData[0].window_size.x-50)*data.stretchedOffset.x), 16));
 		
 		//actual window-space
 		if(focused){
@@ -433,6 +569,9 @@ class ComputerWindowData{
 	cVector2f start_pos;
 	
 	cVector2f position;
+	
+	bool RequestsClose = false;
+	bool Fullscreen = false;
 	
 	bool AllowClose = true;
 	bool AllowMaximize = false;
@@ -545,6 +684,8 @@ class Application
 		if(renderWindow){
 			window[0].Update(time,data,cpu);
 		}
+		
+		if(window[0].windowData[0].RequestsClose) CloseWindow(data, cpu);
 	}
 	void Draw(int index, ComputerData@ data, FunctionalComputer@ cpu){
 		if(renderWindow){
@@ -738,8 +879,29 @@ class Desktop : Application
 			cVector2f size(30 * data.stretchedOffset.x, 30* data.stretchedOffset.y);
 			ImGui_DoImage(taskbarIcon, pos, size);
 			
-			if(app.window[0].focused){
+			bool over = cMath_CheckPointInRectIntersection(data.mousePos,cRect2f(pos.x,pos.y,size.x,size.y));
+			
+			if(app.window[0].focused || over){
 				ImGui_DrawReadableBackground(pos+cVector3f(0,0,-0.5),size,0.85f);
+			}
+
+			if(ImGui_ActionTriggered(eImGuiAction_MouseLeft)){
+				
+				if(over){
+					if(data.currentFocusedApplication[0].renderWindow)
+						data.currentFocusedApplication[0].window[0].focused = false;
+					
+					
+					data.SetCurrentFocusedApplication(@app);
+						
+					cpu.PushAppToFront(@app);
+						
+					if(app.renderWindow){
+						app.window[0].focused = true;
+					}
+					
+					cLux_AddDebugMessage("Set focused app to "+app.name);
+				}
 			}
 		}
 	}
